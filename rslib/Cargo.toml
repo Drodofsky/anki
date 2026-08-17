@@ -109,7 +109,13 @@ unic-ucd-category.workspace = true
 unicase.workspace = true
 unicode-normalization.workspace = true
 zip.workspace = true
-zstd.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# zstdmt (multithreaded compression) needs pthreads, unavailable on wasm32.
+zstd.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+zstd = "0.13.3"
