@@ -8,6 +8,7 @@ use percent_encoding_iri::percent_decode_str;
 use reqwest::Client;
 use reqwest::Url;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::error::AnkiError;
 use crate::error::Result;
 use crate::invalid_input;
@@ -17,6 +18,9 @@ use crate::invalid_input;
 pub async fn retrieve_url(url: &str) -> Result<(String, Vec<u8>)> {
     let is_local = url.to_lowercase().starts_with("file://");
     let (file_contents, content_type) = if is_local {
+        #[cfg(target_arch = "wasm32")]
+        invalid_input!("local file paths are not supported in the browser");
+        #[cfg(not(target_arch = "wasm32"))]
         download_local_file(url).await?
     } else {
         download_remote_file(url).await?
@@ -49,6 +53,7 @@ pub async fn retrieve_url(url: &str) -> Result<(String, Vec<u8>)> {
     Ok((filename.to_string(), file_contents))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 async fn download_local_file(url: &str) -> Result<(Vec<u8>, Option<String>)> {
     let decoded_url = match percent_decode_str(url).decode_utf8() {
         Ok(url) => url,
@@ -78,11 +83,15 @@ async fn download_local_file(url: &str) -> Result<(Vec<u8>, Option<String>)> {
 
 async fn download_remote_file(url: &str) -> Result<(Vec<u8>, Option<String>)> {
     let client = Client::builder()
-        .timeout(Duration::from_secs(30))
         .user_agent("Mozilla/5.0 (compatible; Anki)")
         .build()?;
 
-    let response = client.get(url).send().await?.error_for_status()?;
+    let response = client
+        .get(url)
+        .timeout(Duration::from_secs(30))
+        .send()
+        .await?
+        .error_for_status()?;
     let content_type = response
         .headers()
         .get("content-type")

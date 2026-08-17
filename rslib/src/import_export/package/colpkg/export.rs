@@ -207,9 +207,13 @@ impl Collection {
 /// Copy contents of reader into writer, compressing as we copy.
 fn zstd_copy(reader: &mut impl Read, writer: &mut impl Write, size: usize) -> Result<()> {
     let mut encoder = Encoder::new(writer, 0)?;
+    // zstdmt (multithreaded compression) needs pthreads, unavailable on wasm32.
+    #[cfg(not(target_arch = "wasm32"))]
     if size > MULTITHREAD_MIN_BYTES {
         encoder.multithread(num_cpus::get() as u32)?;
     }
+    #[cfg(target_arch = "wasm32")]
+    let _ = size;
     io::copy(reader, &mut encoder)?;
     encoder.finish()?;
     Ok(())

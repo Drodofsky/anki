@@ -40,7 +40,9 @@ impl AsSyncEndpoint for MediaSyncMethod {
     }
 }
 
-#[async_trait]
+// See the comment on SyncProtocol for why this is conditional.
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait MediaSyncProtocol: Send + Sync + 'static {
     async fn begin(
         &self,

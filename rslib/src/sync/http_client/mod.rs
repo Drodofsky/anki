@@ -23,18 +23,21 @@ use crate::sync::request::header_and_stream::SYNC_HEADER_NAME;
 use crate::sync::request::SyncRequest;
 use crate::sync::response::SyncResponse;
 
-/// Builds a reqwest client suitable for syncing. Currently limited to
-/// http1, as nginx doesn't support http2 proxies.
+/// Builds a reqwest client suitable for syncing. On native, currently
+/// limited to http1, as nginx doesn't support http2 proxies; on wasm32,
+/// the browser negotiates the HTTP version itself, and reqwest's wasm
+/// ClientBuilder doesn't expose this knob anyway.
 ///
 /// If `custom_root_certificate` (PEM-encoded) is provided, it is trusted
 /// in place of the default certificate store - useful for self-hosted
 /// sync servers with a self-signed certificate. Requires the `rustls`
-/// feature.
+/// feature, and is meaningless on wasm32 (the browser owns TLS trust,
+/// with no way for us to override it).
 pub fn build_client(custom_root_certificate: Option<&str>) -> crate::error::Result<Client> {
-    #[cfg(not(feature = "rustls"))]
+    #[cfg(any(target_arch = "wasm32", not(feature = "rustls")))]
     let _ = custom_root_certificate;
 
-    #[cfg(feature = "rustls")]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "rustls"))]
     if let Some(cert_str) = custom_root_certificate {
         use std::io::Cursor;
         use std::io::Read;
@@ -55,6 +58,11 @@ pub fn build_client(custom_root_certificate: Option<&str>) -> crate::error::Resu
             .build()
             .or(Err(AnkiError::InvalidCertificateFormat));
     }
+
+    #[cfg(target_arch = "wasm32")]
+    return Ok(Client::builder().build().unwrap());
+
+    #[cfg(not(target_arch = "wasm32"))]
     Ok(Client::builder().http1_only().build().unwrap())
 }
 
