@@ -50,7 +50,7 @@ impl StoreMetadata {
     fn from_row(row: &Row) -> error::Result<Self, rusqlite::Error> {
         Ok(Self {
             last_usn: row.get(0)?,
-            total_bytes: row.get(1)?,
+            total_bytes: row.get::<_, i64>(1)? as u64,
             total_nonempty_files: row.get(2)?,
         })
     }
@@ -98,7 +98,7 @@ impl ServerMediaDatabase {
             .prepare_cached(include_str!("set_meta.sql"))?
             .execute(params![
                 meta.last_usn,
-                meta.total_bytes,
+                meta.total_bytes as i64,
                 meta.total_nonempty_files
             ])?;
         Ok(())

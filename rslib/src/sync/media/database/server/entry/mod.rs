@@ -41,7 +41,7 @@ impl ServerMediaDatabase {
             .execute(params![
                 &entry.nfc_filename,
                 &entry.sha1,
-                &entry.size,
+                &(entry.size as i64),
                 &entry.usn,
                 &entry.mtime.0,
             ])?;
@@ -110,7 +110,7 @@ impl MediaEntry {
         Ok(Self {
             nfc_filename: row.get(0)?,
             sha1: row.get(1)?,
-            size: row.get(2)?,
+            size: row.get::<_, i64>(2)? as u64,
             usn: row.get(3)?,
             mtime: TimestampSecs(row.get(4)?),
         })

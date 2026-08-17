@@ -9,8 +9,9 @@ impl super::SqliteStorage {
         Ok(self
             .db
             .query_row_and_then(include_str!("invalid_ids_count.sql"), [cutoff], |r| {
-                r.get(0)
-            })?)
+                r.get::<_, i64>(0)
+            })
+            .map(|n| n as usize)?)
     }
 
     /// Ensures all ids used as timestamps are `max_valid_id` or lower.

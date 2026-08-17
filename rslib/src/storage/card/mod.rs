@@ -658,7 +658,11 @@ impl super::SqliteStorage {
         self.db
             .prepare(include_str!("deck_due_counts.sql"))?
             .query_and_then([], |row| -> Result<_> {
-                Ok((DeckId(row.get(0)?), row.get(1)?, row.get(2)?))
+                Ok((
+                    DeckId(row.get(0)?),
+                    row.get(1)?,
+                    row.get::<_, i64>(2)? as usize,
+                ))
             })?
             .collect()
     }
@@ -773,7 +777,7 @@ impl super::SqliteStorage {
             .next()
             .unwrap()
             .unwrap()
-            .get(0)?)
+            .get::<_, i64>(0)? as u64)
     }
 
     #[cfg(test)]
