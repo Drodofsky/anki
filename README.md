@@ -9,7 +9,10 @@ system have all been removed.
 
 This is a real fork with intact git history (not a history-rewritten extraction), so
 upstream changes from [ankitects/anki](https://github.com/ankitects/anki) can still be
-merged in selectively over time.
+merged in selectively over time — see [docs/UPSTREAM_SYNC.md](./docs/UPSTREAM_SYNC.md)
+for that workflow, and [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for what was
+removed/relocated and why (including `wasm32-unknown-unknown` support, which this fork
+builds cleanly for, in addition to native).
 
 ## What's here
 
@@ -40,7 +43,11 @@ cargo test -p anki
 ```
 
 There is no `just`/ninja build system in this fork — plain `cargo` commands are used
-directly.
+directly. To check the `wasm32-unknown-unknown` (browser) target:
+
+```
+RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo check -p anki --target wasm32-unknown-unknown
+```
 
 ## License
 
