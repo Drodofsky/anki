@@ -92,9 +92,10 @@ releases, meaningless outside the native desktop app.
 
 ## wasm32-unknown-unknown support
 
-`cargo check -p anki --target wasm32-unknown-unknown` (with
-`RUSTFLAGS='--cfg getrandom_backend="wasm_js"'`) is clean. Native behavior is
-unchanged throughout - every wasm-specific adaptation is behind
+`cargo check -p anki --target wasm32-unknown-unknown` is clean (the required
+`--cfg getrandom_backend="wasm_js"` rustflag lives in `.cargo/config.toml`, so
+no manual env var is needed). Native behavior is unchanged throughout - every
+wasm-specific adaptation is behind
 `#[cfg(target_arch = "wasm32")]` or a target-specific Cargo dependency, and the
 native path was re-verified (`cargo build`/`test`/`clippy`/`fmt`) after each one.
 

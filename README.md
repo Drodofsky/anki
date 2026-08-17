@@ -46,7 +46,7 @@ There is no `just`/ninja build system in this fork — plain `cargo` commands ar
 directly. To check the `wasm32-unknown-unknown` (browser) target:
 
 ```
-RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo check -p anki --target wasm32-unknown-unknown
+cargo check -p anki --target wasm32-unknown-unknown
 ```
 
 ## License

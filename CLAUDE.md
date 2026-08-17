@@ -39,8 +39,10 @@ cargo clippy -p anki
 To check the wasm32 target (no test runner for it here, check/clippy only):
 
 ```
-RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo check -p anki --target wasm32-unknown-unknown
+cargo check -p anki --target wasm32-unknown-unknown
 ```
+
+(the required `--cfg getrandom_backend="wasm_js"` rustflag is baked into `.cargo/config.toml`)
 
 Prerequisites: a `protoc` binary on `PATH` (or `PROTOC_BINARY` env var set), and the
 `ftl/core-repo`/`ftl/qt-repo` submodules checked out (`git submodule update --init`).
@@ -55,8 +57,8 @@ tests is fine.
 ## Merging from upstream
 
 `upstream` remote points at `https://github.com/ankitects/anki.git`. Do not
-`git merge upstream/main` directly into `prune-to-rslib` — see
+`git merge upstream/main` directly into `main` — see
 [docs/UPSTREAM_SYNC.md](./docs/UPSTREAM_SYNC.md) for the branch topology
-(`main` mirror / `next` staging / `prune-to-rslib` stable) and the
+(`main` stable / `next` staging for cherry-picks) and the
 commit-by-commit cherry-pick workflow, including which upstream paths can be
 skipped outright.

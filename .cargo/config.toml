@@ -10,3 +10,9 @@ rustflags = ["-C", "target-feature=+crt-static"]
 
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld"
+
+[target.wasm32-unknown-unknown]
+# getrandom needs this cfg to use the browser's crypto API instead of a
+# syscall; it can't be expressed as a Cargo feature alone. Baked in here so
+# `cargo check --target wasm32-unknown-unknown` works without extra flags.
+rustflags = ["--cfg", 'getrandom_backend="wasm_js"']

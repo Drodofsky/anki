@@ -13,44 +13,42 @@ ones that don't apply, and cherry-pick the rest individually.
 bfaf62d4dd0224607e2dd453ae6775b5bc2e6833  (2026-08-18)
 ```
 
-Everything up to and including this commit has been checked against
-`prune-to-rslib` (either cherry-picked, or explicitly skipped as irrelevant).
-**Update this line whenever you finish a review pass**, even if nothing ended
-up being cherry-picked - it marks how far the review has gotten, not how much
-was taken.
+Everything up to and including this commit has been checked against `main`
+(either cherry-picked, or explicitly skipped as irrelevant). **Update this
+line whenever you finish a review pass**, even if nothing ended up being
+cherry-picked - it marks how far the review has gotten, not how much was
+taken.
 
 ## Branches
 
-- **`main`** - a pure mirror of `upstream/main`. Never diverges, never gets
-  commits of its own; only ever fast-forwards. Exists purely so you have a
-  clean local copy of upstream to diff/cherry-pick from.
-- **`prune-to-rslib`** - the real, stable branch. What you'd build against.
-  Only receives commits that have been reviewed and verified.
+- **`main`** - the real, stable branch. What you'd build against. Only
+  receives commits that have been reviewed and verified. There is no local
+  mirror branch of upstream; diff/review directly against the `upstream`
+  remote (`upstream/main`) instead - `git fetch upstream` keeps that
+  remote-tracking ref current without needing a local branch of its own.
 - **`next`** - disposable staging branch for testing a batch of cherry-picks
-  before they touch `prune-to-rslib`. Recreated fresh each sync round (see
-  below) - don't build anything on top of it that you want to keep.
+  before they touch `main`. Recreated fresh each sync round (see below) -
+  don't build anything on top of it that you want to keep.
 
 Using a staging branch here is worth the small overhead: cherry-picking across
 a fork this divergent is exactly the kind of thing that goes fine for the
 first few commits in a batch and then hits a conflict or a subtle breakage
 three commits later. Verifying the *whole batch* together on `next` before
-`prune-to-rslib` ever moves means `prune-to-rslib` stays in a known-good state
-the entire time - if something in the batch turns out broken, you fix it or
-drop that one commit on `next` and re-verify, instead of having to figure out
-how to unwind a bad cherry-pick that's already landed on your real branch.
+`main` ever moves means `main` stays in a known-good state the entire time -
+if something in the batch turns out broken, you fix it or drop that one
+commit on `next` and re-verify, instead of having to figure out how to unwind
+a bad cherry-pick that's already landed on your real branch.
 
 ## Workflow
 
-1. **Sync the mirror.**
+1. **Fetch upstream.**
    ```
-   git checkout main
    git fetch upstream
-   git merge upstream/main   # always a fast-forward
    ```
 
 2. **See what's new.**
    ```
-   git log --oneline <last-reviewed-sha>..main
+   git log --oneline <last-reviewed-sha>..upstream/main
    ```
    For each commit, `git show --stat <sha>` first. Skip immediately (no
    further review needed) if it *only* touches paths that don't exist in this
@@ -67,8 +65,8 @@ how to unwind a bad cherry-pick that's already landed on your real branch.
 
 3. **Stage the batch on `next`.**
    ```
-   git checkout prune-to-rslib
-   git branch -f next        # reset next to the current tip of prune-to-rslib
+   git checkout main
+   git branch -f next        # reset next to the current tip of main
    git checkout next
    git cherry-pick <sha1> <sha2> ...
    ```
@@ -82,8 +80,7 @@ how to unwind a bad cherry-pick that's already landed on your real branch.
    cargo build -p anki
    cargo test -p anki
    cargo clippy -p anki
-   RUSTFLAGS='--cfg getrandom_backend="wasm_js"' \
-     cargo check -p anki --target wasm32-unknown-unknown
+   cargo clippy -p anki --target wasm32-unknown-unknown
    (cd cargo/format && cargo fmt --manifest-path ../../rslib/Cargo.toml -- --check)
    ```
    If a commit touched one of the files with a native/wasm split
@@ -94,7 +91,7 @@ how to unwind a bad cherry-pick that's already landed on your real branch.
 
 5. **Promote.** Once `next` is green:
    ```
-   git checkout prune-to-rslib
+   git checkout main
    git merge --ff-only next
    git push
    ```
