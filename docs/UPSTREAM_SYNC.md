@@ -52,11 +52,20 @@ a bad cherry-pick that's already landed on your real branch.
    ```
    For each commit, `git show --stat <sha>` first. Skip immediately (no
    further review needed) if it *only* touches paths that don't exist in this
-   fork: `qt/`, `ts/`, `pylib/`, `docs/`, `build/`, `tools/`,
+   fork: `qt/`, `ts/`, `pylib/`, upstream's `docs/`, `build/`, `tools/`,
    `rslib/src/sync/http_server/`, `rslib/src/sync/media/database/server/`, a
    `server_*` function in `rslib/src/sync/collection/*.rs`, or
    `rslib/src/backend/mod.rs` (see ARCHITECTURE.md's tables for the full
    removed/relocated lists). This is the overwhelming majority of commits.
+
+   **Never skip `ftl/core/`, `ftl/qt/`, or a submodule-pointer bump for
+   `ftl/core-repo`/`ftl/qt-repo`** - both translation trees are kept in this
+   fork (required by `rslib/i18n`'s build script) and should always track
+   upstream. A submodule bump shows up as a normal commit touching the
+   `ftl/core-repo`/`ftl/qt-repo` path (just a pointer/SHA change, not a file
+   diff) - cherry-pick it like any other commit, then run
+   `git submodule update --init` afterwards to actually fetch the new
+   submodule commit locally.
 
    For anything touching surviving code (`rslib/src/{cards,notes,decks,
    notetype,scheduler,search,storage,import_export,...}`, shared `sync/`
