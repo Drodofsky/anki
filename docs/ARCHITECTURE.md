@@ -14,6 +14,30 @@ kept exists to serve that; everything removed existed only to serve some other
 consumption model (Python FFI, a bundled Qt/web desktop app, a self-hosted sync
 server, JNI for Android).
 
+## Guiding principles for changes in this repo
+
+Both of these exist to keep future upstream cherry-picks (see
+[UPSTREAM_SYNC.md](./UPSTREAM_SYNC.md)) tractable indefinitely, not just at the
+time of the initial prune:
+
+- **Minimal diff from upstream.** Prefer the smallest change that achieves the
+  goal - additive/`#[cfg]`-gated over restructuring, keep upstream's file
+  layout and naming where the code itself is unchanged. Every wasm32
+  adaptation in this repo follows this: native code paths are untouched, wasm
+  gets a parallel `#[cfg(target_arch = "wasm32")]` arm alongside it (see
+  `io_monitor.rs`, `full_sync.rs`, `editor.rs`) rather than a rewrite of the
+  shared logic. A smaller diff from `upstream/main` is a smaller/cleaner
+  conflict surface on every future cherry-pick, forever.
+- **Only core Anki functionality lives here.** This crate stays a (pruned,
+  wasm-enabled) generic Anki core - not a place for app-specific business
+  logic. A downstream consumer's own domain modeling, UI state, or
+  vocab-app-specific features belong in that consumer's own crate, which
+  depends on this one. If something feels like "my app needs this," it
+  probably doesn't belong in this repo; if it feels like "any Anki-core
+  consumer would want this," it does. Keeping that boundary sharp is what
+  keeps this repo mergeable with upstream instead of drifting into being
+  something else's fork-of-a-fork.
+
 ## What's kept vs. removed (top level)
 
 See [README.md](../README.md) for the file-level list. In short: `rslib/` and

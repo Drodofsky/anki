@@ -14,6 +14,13 @@ not to run it as the Anki application. It targets both native and
 `wasm32-unknown-unknown` (browser) callers. See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 for what was removed/relocated and why, including the wasm32-specific adaptations.
 
+**Guiding principles for any change here** (see ARCHITECTURE.md's "Guiding principles"
+section for the full reasoning): keep the diff from upstream minimal — prefer
+additive/`#[cfg]`-gated changes over restructuring shared code — and keep this crate
+to *generic* Anki-core functionality only. App-specific business logic (a downstream
+consumer's own domain modeling, UI state, etc.) belongs in that consumer's own crate,
+not here. Both exist to keep future `git cherry-pick`s from upstream tractable.
+
 ## Layout
 
 - `rslib/` — the `anki` crate itself: collection, cards, notes, notetypes, scheduler,
