@@ -1,32 +1,48 @@
-# Anki
+# anki-rslib-core
 
-[![Build Status](https://github.com/ankitects/anki/actions/workflows/ci.yml/badge.svg)](https://github.com/ankitects/anki/actions/workflows/ci.yml)
-[![Documentation](https://img.shields.io/badge/docs-dev--docs.ankiweb.net-blue)](https://dev-docs.ankiweb.net)
+A pruned fork of [Anki](https://apps.ankiweb.net)'s Rust core (`rslib`, the `anki`
+crate), meant to be consumed as a Cargo dependency (git or path) rather than run as
+the full Anki application. This repo intentionally keeps only what's needed to build
+the `anki` crate, plus its bundled multi-language translation strings — the Python
+library, PyQt desktop UI, Svelte web frontend, and the ninja-based monorepo build
+system have all been removed.
 
-This repo contains the source code for the computer version of
-[Anki](https://apps.ankiweb.net).
+This is a real fork with intact git history (not a history-rewritten extraction), so
+upstream changes from [ankitects/anki](https://github.com/ankitects/anki) can still be
+merged in selectively over time.
 
-## About
+## What's here
 
-Anki is a spaced repetition program. Please see the [website](https://apps.ankiweb.net) to learn more.
+- `rslib/` — the `anki` crate: collections, cards, notes, notetypes, the scheduler,
+  search, import/export, sync, media handling, etc.
+- `rslib/i18n`, `rslib/io`, `rslib/proto`, `rslib/proto_gen` — its required build/
+  runtime dependencies (translation loading, I/O error helpers, protobuf codegen).
+- `proto/` — the protobuf schema `rslib/proto` compiles.
+- `ftl/core` + `ftl/qt` (and their `core-repo`/`qt-repo` submodules) — Anki's Fluent
+  translation strings, in every language Anki ships. Both are required at build time
+  by `rslib/i18n`'s build script.
 
-## Getting Started
+## Building
 
-### Contributing
+Requires:
 
-Want to contribute to Anki? Check out the [Contribution Guidelines](./docs/contributing.md).
+- The Rust toolchain pinned in `rust-toolchain.toml`.
+- A `protoc` (Protocol Buffers compiler) binary on `PATH`, or set the `PROTOC_BINARY`
+  env var to point at one.
+- The `ftl/core-repo` and `ftl/qt-repo` git submodules checked out:
+  `git submodule update --init`
 
-For more information on building and developing, please see [Development](./docs/development.md).
+Then, from the repo root:
 
-#### Contributors
+```
+cargo build -p anki
+cargo test -p anki
+```
 
-The following people have contributed to Anki: [CONTRIBUTORS](./CONTRIBUTORS)
-
-### Anki Betas
-
-If you'd like to try development builds of Anki but don't feel comfortable
-building the code, please see [Anki betas](https://betas.ankiweb.net/).
+There is no `just`/ninja build system in this fork — plain `cargo` commands are used
+directly.
 
 ## License
 
-Anki's license: [LICENSE](./LICENSE)
+Anki, and this fork, are licensed under the GNU AGPL v3 or later — see [LICENSE](./LICENSE).
+Contributors are listed in [CONTRIBUTORS](./CONTRIBUTORS).
