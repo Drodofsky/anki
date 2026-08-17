@@ -7,14 +7,11 @@ mod ankihub;
 mod ankiweb;
 mod card_rendering;
 mod collection;
-mod config;
-pub(crate) mod dbproxy;
 mod error;
 mod github;
 mod i18n;
 mod import_export;
 mod media;
-mod ops;
 mod sync;
 
 use std::ops::Deref;
@@ -30,7 +27,7 @@ use reqwest::Client;
 use tokio::runtime;
 use tokio::runtime::Runtime;
 
-use crate::backend::dbproxy::db_command_bytes;
+use crate::ankidroid::dbproxy::db_command_bytes;
 use crate::backend::sync::SyncState;
 use crate::prelude::*;
 use crate::progress::Progress;

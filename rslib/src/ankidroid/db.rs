@@ -37,7 +37,7 @@ struct CollectionId(i64);
 #[derive(Deserialize)]
 struct DBArgs {
     sql: String,
-    args: Vec<crate::backend::dbproxy::SqlValue>,
+    args: Vec<crate::ankidroid::dbproxy::SqlValue>,
 }
 
 pub trait Sizable {

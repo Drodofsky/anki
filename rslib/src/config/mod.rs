@@ -6,6 +6,7 @@ mod deck;
 mod notetype;
 mod number;
 pub(crate) mod schema11;
+mod service;
 mod string;
 pub(crate) mod undo;
 
