@@ -13,5 +13,4 @@ pub mod protocol;
 pub mod sanity;
 pub mod start;
 pub mod status;
-pub mod tests;
 pub mod upload;

@@ -3,16 +3,12 @@
 
 use anki_io::atomic_rename;
 use anki_io::new_tempfile_in_parent_of;
-use anki_io::read_file;
 use anki_io::write_file;
 use reqwest::Client;
 
 use crate::collection::CollectionBuilder;
 use crate::prelude::*;
-use crate::storage::SchemaVersion;
 use crate::sync::collection::protocol::EmptyInput;
-use crate::sync::error::HttpResult;
-use crate::sync::error::OrHttpErr;
 use crate::sync::http_client::HttpSyncClient;
 use crate::sync::login::SyncAuth;
 
@@ -44,20 +40,4 @@ impl Collection {
         atomic_rename(temp_file, &col_path, true)?;
         Ok(())
     }
-}
-
-pub fn server_download(
-    col: &mut Option<Collection>,
-    schema_version: SchemaVersion,
-) -> HttpResult<Vec<u8>> {
-    let col_path = {
-        let mut col = col.take().or_internal_err("take col")?;
-        let path = col.col_path.clone();
-        col.transact_no_undo(|col| col.storage.increment_usn())
-            .or_internal_err("incr usn")?;
-        col.close(Some(schema_version)).or_internal_err("close")?;
-        path
-    };
-    let data = read_file(col_path).or_internal_err("read col")?;
-    Ok(data)
 }

@@ -7,7 +7,6 @@ use serde::Serialize;
 use tracing::debug;
 
 use crate::prelude::*;
-use crate::sync::collection::chunks::ChunkableIds;
 use crate::sync::collection::graves::ApplyGravesRequest;
 use crate::sync::collection::graves::Graves;
 use crate::sync::collection::normal::ClientSyncState;
@@ -83,61 +82,6 @@ pub struct StartRequest {
     /// Used by old clients, and still used by AnkiDroid.
     #[serde(rename = "graves", default, deserialize_with = "legacy_graves")]
     pub deprecated_client_graves: Option<Graves>,
-}
-
-pub fn server_start(
-    req: StartRequest,
-    col: &mut Collection,
-    state: &mut ServerSyncState,
-) -> Result<Graves> {
-    state.server_usn = col.usn()?;
-    state.client_usn = req.client_usn;
-    state.client_is_newer = req.local_is_newer;
-
-    col.discard_undo_and_study_queues();
-    col.storage.begin_rust_trx()?;
-
-    // make sure any pending cards have been unburied first if necessary
-    let timing = col.timing_today()?;
-    col.unbury_if_day_rolled_over(timing)?;
-
-    // fetch local graves
-    let server_graves = col.storage.pending_graves(state.client_usn)?;
-    // handle AnkiDroid using old protocol
-    if let Some(graves) = req.deprecated_client_graves {
-        col.apply_graves(graves, state.server_usn)?;
-    }
-
-    Ok(server_graves)
-}
-
-/// The current sync protocol is stateful, so unfortunately we need to
-/// retain a bunch of information across requests. These are set either
-/// on start, or on subsequent methods.
-pub struct ServerSyncState {
-    /// The session key. This is sent on every http request, but is ignored for
-    /// methods where there is not active sync state.
-    pub skey: String,
-
-    pub(in crate::sync) server_usn: Usn,
-    pub(in crate::sync) client_usn: Usn,
-    /// Only used to determine whether we should send our
-    /// config to client.
-    pub(in crate::sync) client_is_newer: bool,
-    /// Set on the first call to chunk()
-    pub(in crate::sync) server_chunk_ids: Option<ChunkableIds>,
-}
-
-impl ServerSyncState {
-    pub fn new(skey: impl Into<String>) -> Self {
-        Self {
-            skey: skey.into(),
-            server_usn: Default::default(),
-            client_usn: Default::default(),
-            client_is_newer: false,
-            server_chunk_ids: None,
-        }
-    }
 }
 
 pub(crate) fn legacy_graves<'de, D>(deserializer: D) -> Result<Option<Graves>, D::Error>

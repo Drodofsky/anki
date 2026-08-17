@@ -3,19 +3,11 @@
 
 use std::marker::PhantomData;
 
-use axum::body::Body;
-use axum::response::IntoResponse;
-use axum::response::Response;
-use axum_extra::headers::HeaderName;
+use http::HeaderName;
 use serde::de::DeserializeOwned;
-use serde::Serialize;
 
 use crate::prelude::*;
 use crate::sync::collection::upload::UploadResponse;
-use crate::sync::error::HttpResult;
-use crate::sync::error::OrHttpErr;
-use crate::sync::request::header_and_stream::encode_zstd_body;
-use crate::sync::version::SyncVersion;
 
 pub static ORIGINAL_SIZE: HeaderName = HeaderName::from_static("anki-original-size");
 
@@ -35,16 +27,6 @@ impl<T> SyncResponse<T> {
             json_output_type: Default::default(),
         }
     }
-
-    pub fn make_response(self, sync_version: SyncVersion) -> Response {
-        if sync_version.is_zstd() {
-            let header = (&ORIGINAL_SIZE, self.data.len().to_string());
-            let body = Body::from_stream(encode_zstd_body(self.data));
-            ([header], body).into_response()
-        } else {
-            self.data.into_response()
-        }
-    }
 }
 
 impl SyncResponse<UploadResponse> {
@@ -56,24 +38,6 @@ impl SyncResponse<UploadResponse> {
             "OK" => UploadResponse::Ok,
             other => UploadResponse::Err(other.into()),
         }
-    }
-
-    pub fn from_upload_response(resp: UploadResponse) -> Self {
-        let text = match resp {
-            UploadResponse::Ok => "OK".into(),
-            UploadResponse::Err(other) => other,
-        };
-        SyncResponse::from_vec(text.into_bytes())
-    }
-}
-
-impl<T> SyncResponse<T>
-where
-    T: Serialize,
-{
-    pub fn try_from_obj(obj: T) -> HttpResult<SyncResponse<T>> {
-        let data = serde_json::to_vec(&obj).or_internal_err("couldn't serialize object")?;
-        Ok(SyncResponse::from_vec(data))
     }
 }
 

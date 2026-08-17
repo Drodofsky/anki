@@ -2,7 +2,6 @@
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
 pub mod header_and_stream;
-mod multipart;
 
 use std::any::Any;
 use std::env;
@@ -10,21 +9,10 @@ use std::marker::PhantomData;
 use std::net::IpAddr;
 use std::sync::LazyLock;
 
-use axum::body::Body;
-use axum::extract::FromRequest;
-use axum::extract::Multipart;
-use axum::http::Request;
-use axum::http::StatusCode;
-use axum::RequestPartsExt;
-use axum_client_ip::ClientIp;
-use axum_extra::TypedHeader;
-use header_and_stream::SyncHeader;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Error;
-use tracing::Span;
 
-use crate::sync::error::HttpError;
 use crate::sync::error::HttpResult;
 use crate::sync::error::OrHttpErr;
 use crate::sync::version::SyncVersion;
@@ -97,44 +85,6 @@ where
             None.or_bad_request("missing skey")?;
         }
         Ok(&self.session_key)
-    }
-}
-
-impl<S, T> FromRequest<S> for SyncRequest<T>
-where
-    S: Send + Sync,
-    T: DeserializeOwned,
-{
-    type Rejection = HttpError;
-
-    async fn from_request(req: Request<Body>, state: &S) -> Result<Self, Self::Rejection> {
-        let (mut parts, body) = req.into_parts();
-
-        let ip = parts
-            .extract::<ClientIp>()
-            .await
-            .map_err(|_| {
-                HttpError::new_without_source(StatusCode::INTERNAL_SERVER_ERROR, "missing ip")
-            })?
-            .0;
-        Span::current().record("ip", ip.to_string());
-
-        let sync_header: Option<TypedHeader<SyncHeader>> =
-            parts.extract().await.or_bad_request("bad sync header")?;
-        let req = Request::from_parts(parts, body);
-
-        if let Some(TypedHeader(sync_header)) = sync_header {
-            let stream = Body::from_request(req, state)
-                .await
-                .expect("infallible")
-                .into_data_stream();
-            SyncRequest::from_header_and_stream(sync_header, stream, ip).await
-        } else {
-            let multi = Multipart::from_request(req, state)
-                .await
-                .or_bad_request("multipart")?;
-            SyncRequest::from_multipart(multi, ip).await
-        }
     }
 }
 

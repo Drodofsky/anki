@@ -9,7 +9,6 @@ pub mod progress;
 pub mod protocol;
 pub mod sanity;
 pub mod syncer;
-mod tests;
 pub mod upload;
 pub mod zip;
 
@@ -18,10 +17,6 @@ pub mod zip;
 /// on some platforms, and some filesystems like eCryptFS will increase
 /// the length of the filename.
 pub static MAX_MEDIA_FILENAME_LENGTH: usize = 120;
-
-// We can't enforce the 120 limit until all clients have shifted over to the
-// Rust codebase.
-pub const MAX_MEDIA_FILENAME_LENGTH_SERVER: usize = 255;
 
 /// Media syncing does not support files over 100MiB.
 pub static MAX_INDIVIDUAL_MEDIA_FILE_SIZE: usize = 100 * 1024 * 1024;

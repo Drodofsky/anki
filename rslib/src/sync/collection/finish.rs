@@ -27,12 +27,3 @@ impl Collection {
         self.storage.set_modified_time(new_server_mtime)
     }
 }
-
-pub fn server_finish(col: &mut Collection) -> Result<TimestampMillis> {
-    let now = TimestampMillis::now();
-    col.storage.set_last_sync(now)?;
-    col.storage.increment_usn()?;
-    col.storage.commit_rust_trx()?;
-    col.storage.set_modified_time(now)?;
-    Ok(now)
-}

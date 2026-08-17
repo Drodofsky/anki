@@ -11,7 +11,6 @@ use serde::Serialize;
 use serde_json::Value;
 use serde_tuple::Serialize_tuple;
 use tracing::debug;
-use tracing::trace;
 
 use crate::deckconfig::DeckConfSchema11;
 use crate::decks::DeckSchema11;
@@ -21,7 +20,6 @@ use crate::prelude::*;
 use crate::sync::collection::normal::ClientSyncState;
 use crate::sync::collection::normal::NormalSyncer;
 use crate::sync::collection::protocol::SyncProtocol;
-use crate::sync::collection::start::ServerSyncState;
 use crate::sync::request::IntoSyncRequest;
 use crate::tags::Tag;
 
@@ -310,16 +308,4 @@ impl Collection {
         }
         Ok(())
     }
-}
-
-pub fn server_apply_changes(
-    req: ApplyChangesRequest,
-    col: &mut Collection,
-    state: &mut ServerSyncState,
-) -> Result<UnchunkedChanges> {
-    let server_changes =
-        col.local_unchunked_changes(state.client_usn, None, !state.client_is_newer)?;
-    trace!(?req.changes, ?server_changes);
-    col.apply_changes(req.changes, state.server_usn)?;
-    Ok(server_changes)
 }

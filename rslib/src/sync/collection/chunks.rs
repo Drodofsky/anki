@@ -20,7 +20,6 @@ use crate::sync::collection::normal::ClientSyncState;
 use crate::sync::collection::normal::NormalSyncer;
 use crate::sync::collection::protocol::EmptyInput;
 use crate::sync::collection::protocol::SyncProtocol;
-use crate::sync::collection::start::ServerSyncState;
 use crate::sync::request::IntoSyncRequest;
 use crate::tags::join_tags;
 use crate::tags::split_tags;
@@ -397,21 +396,6 @@ impl From<Note> for NoteEntry {
             data: String::new(),
         }
     }
-}
-
-pub fn server_chunk(col: &mut Collection, state: &mut ServerSyncState) -> Result<Chunk> {
-    if state.server_chunk_ids.is_none() {
-        state.server_chunk_ids = Some(col.get_chunkable_ids(state.client_usn)?);
-    }
-    col.get_chunk(state.server_chunk_ids.as_mut().unwrap(), None)
-}
-
-pub fn server_apply_chunk(
-    req: ApplyChunkRequest,
-    col: &mut Collection,
-    state: &mut ServerSyncState,
-) -> Result<()> {
-    col.apply_chunk(req.chunk, state.client_usn)
 }
 
 impl Usn {

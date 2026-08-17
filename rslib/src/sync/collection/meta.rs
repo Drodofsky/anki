@@ -3,11 +3,10 @@
 
 use ammonia::Url;
 use anki_io::metadata;
-use axum::http::StatusCode;
+use http::StatusCode;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::debug;
-use tracing::info;
 
 use crate::config::SchedulerVersion;
 use crate::prelude::*;
@@ -15,16 +14,11 @@ use crate::sync::collection::normal::ClientSyncState;
 use crate::sync::collection::normal::SyncActionRequired;
 use crate::sync::collection::protocol::SyncProtocol;
 use crate::sync::error::HttpError;
-use crate::sync::error::HttpResult;
 use crate::sync::error::OrHttpErr;
 use crate::sync::http_client::HttpSyncClient;
 use crate::sync::request::IntoSyncRequest;
 use crate::sync::request::SyncRequest;
-use crate::sync::request::MAXIMUM_SYNC_PAYLOAD_BYTES_UNCOMPRESSED;
-use crate::sync::version::SYNC_VERSION_09_V2_SCHEDULER;
-use crate::sync::version::SYNC_VERSION_10_V2_TIMEZONE;
 use crate::sync::version::SYNC_VERSION_MAX;
-use crate::sync::version::SYNC_VERSION_MIN;
 use crate::version::sync_client_version;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -147,30 +141,6 @@ impl Collection {
             media_usn: Usn(0),
         })
     }
-}
-
-pub fn server_meta(req: MetaRequest, col: &mut Collection) -> HttpResult<SyncMeta> {
-    if !matches!(req.sync_version, SYNC_VERSION_MIN..=SYNC_VERSION_MAX) {
-        return Err(HttpError {
-            // old clients expected this code
-            code: StatusCode::NOT_IMPLEMENTED,
-            context: "unsupported version".into(),
-            source: None,
-        });
-    }
-    let mut meta = col.sync_meta().or_internal_err("sync meta")?;
-    if meta.collection_bytes > *MAXIMUM_SYNC_PAYLOAD_BYTES_UNCOMPRESSED {
-        info!("collection is too large, forcing one-way sync");
-        meta.schema = TimestampMillis::now();
-    }
-    if meta.v2_scheduler_or_later && req.sync_version < SYNC_VERSION_09_V2_SCHEDULER {
-        meta.server_message = "Your client does not support the v2 scheduler".into();
-        meta.should_continue = false;
-    } else if meta.v2_timezone && req.sync_version < SYNC_VERSION_10_V2_TIMEZONE {
-        meta.server_message = "Your client does not support the new timezone handling.".into();
-        meta.should_continue = false;
-    }
-    Ok(meta)
 }
 
 impl MetaRequest {
