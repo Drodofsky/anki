@@ -118,7 +118,11 @@ termcolor = "1.4.1"
 tokio = { version = "1.45", features = ["io-util", "rt", "macros"] }
 tokio-util = { version = "0.7.15", features = ["io"] }
 tracing = { version = "0.1.41", features = ["max_level_trace", "release_max_level_debug"] }
-tracing-appender = "0.2.3"
+# Pinned exactly: 0.2.4+ added an unconditional "latest.log" symlink feature
+# with no cfg-guard, calling `symlink` crate functions gated to
+# unix/windows/redox only - breaks wasm32-unknown-unknown. Check upstream for
+# a fix before bumping past 0.2.3.
+tracing-appender = "=0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter"] }
 unic-langid = { version = "0.9.6", features = ["macros"] }
 unic-ucd-category = "0.9.0"
