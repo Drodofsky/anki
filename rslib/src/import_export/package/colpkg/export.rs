@@ -40,6 +40,8 @@ use crate::storage::SchemaVersion;
 /// Enable multithreaded compression if over this size. For smaller files,
 /// multithreading makes things slower, and in initial tests, the crossover
 /// point was somewhere between 1MB and 10MB on a many-core system.
+/// zstdmt needs pthreads, unavailable on wasm32 - see the cfg in zstd_copy().
+#[cfg(not(target_arch = "wasm32"))]
 const MULTITHREAD_MIN_BYTES: usize = 10 * 1024 * 1024;
 
 impl Collection {

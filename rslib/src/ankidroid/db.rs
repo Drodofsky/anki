@@ -246,6 +246,9 @@ pub(crate) fn next_sequence_number() -> i32 {
 // io.requery.android.database.CursorWindow.sCursorWindowSize
 static DB_COMMAND_PAGE_SIZE: LazyLock<Mutex<usize>> = LazyLock::new(|| Mutex::new(1024 * 1024 * 2));
 
+// SetPageSize was only ever exposed via BackendAnkidroidService, which no
+// longer exists (see docs/ARCHITECTURE.md) - this is genuinely test-only now.
+#[cfg(test)]
 pub(crate) fn set_max_page_size(size: usize) {
     let mut state = DB_COMMAND_PAGE_SIZE.lock().expect("Could not lock mutex");
     *state = size;
