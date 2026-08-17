@@ -6,15 +6,41 @@ use std::path::Path;
 use anki_proto::generic;
 use anki_proto::media::AddMediaFileRequest;
 use anki_proto::media::AddMediaFromPathRequest;
+use anki_proto::media::AddMediaFromUrlResponse;
 use anki_proto::media::CheckMediaResponse;
 use anki_proto::media::TrashMediaFilesRequest;
 
 use crate::collection::Collection;
+use crate::editor::retrieve_url;
 use crate::error;
 use crate::error::OrNotFound;
 use crate::notes::service::to_i64s;
 use crate::notetype::NotetypeId;
 use crate::text::extract_media_refs;
+
+/// Fetches `url` and adds it to the media folder. Unlike the rest of this
+/// trait, this needs to be async since it makes a network request.
+pub async fn add_media_from_url(
+    col: &mut Collection,
+    url: &str,
+) -> error::Result<AddMediaFromUrlResponse> {
+    let media = col.media()?;
+    Ok(match retrieve_url(url).await {
+        Ok((filename, data)) => {
+            media
+                .add_file(&filename, &data)
+                .map(|fname| fname.to_string())?;
+            AddMediaFromUrlResponse {
+                filename: Some(filename),
+                error: None,
+            }
+        }
+        Err(e) => AddMediaFromUrlResponse {
+            filename: None,
+            error: Some(e.message(col.tr())),
+        },
+    })
+}
 
 impl crate::services::MediaService for Collection {
     fn check_media(&mut self) -> error::Result<CheckMediaResponse> {

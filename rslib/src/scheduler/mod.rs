@@ -22,6 +22,8 @@ mod upgrade;
 
 use chrono::FixedOffset;
 pub use reviews::parse_due_date_str;
+pub use service::compute_fsrs_params_from_items;
+pub use service::fsrs_benchmark;
 use timing::sched_timing_today;
 use timing::SchedTimingToday;
 

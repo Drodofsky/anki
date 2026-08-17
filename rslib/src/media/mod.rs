@@ -11,6 +11,7 @@ use std::path::PathBuf;
 
 use anki_io::create_dir_all;
 use reqwest::Client;
+pub use service::add_media_from_url;
 
 use crate::media::files::add_data_to_folder_uniquely;
 use crate::media::files::mtime_as_i64;

@@ -23,6 +23,41 @@ use crate::sync::request::header_and_stream::SYNC_HEADER_NAME;
 use crate::sync::request::SyncRequest;
 use crate::sync::response::SyncResponse;
 
+/// Builds a reqwest client suitable for syncing. Currently limited to
+/// http1, as nginx doesn't support http2 proxies.
+///
+/// If `custom_root_certificate` (PEM-encoded) is provided, it is trusted
+/// in place of the default certificate store - useful for self-hosted
+/// sync servers with a self-signed certificate. Requires the `rustls`
+/// feature.
+pub fn build_client(custom_root_certificate: Option<&str>) -> crate::error::Result<Client> {
+    #[cfg(not(feature = "rustls"))]
+    let _ = custom_root_certificate;
+
+    #[cfg(feature = "rustls")]
+    if let Some(cert_str) = custom_root_certificate {
+        use std::io::Cursor;
+        use std::io::Read;
+
+        use reqwest::Certificate;
+
+        use crate::error::AnkiError;
+
+        if rustls_pemfile::read_all(Cursor::new(cert_str.as_bytes()).by_ref()).count() != 1 {
+            return Err(AnkiError::InvalidCertificateFormat);
+        }
+        let certificate = Certificate::from_pem(cert_str.as_bytes())
+            .or(Err(AnkiError::InvalidCertificateFormat))?;
+        return Client::builder()
+            .use_rustls_tls()
+            .add_root_certificate(certificate)
+            .http1_only()
+            .build()
+            .or(Err(AnkiError::InvalidCertificateFormat));
+    }
+    Ok(Client::builder().http1_only().build().unwrap())
+}
+
 #[derive(Clone)]
 pub struct HttpSyncClient {
     /// Set to the empty string for initial login

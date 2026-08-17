@@ -10,6 +10,15 @@ pub struct DeckAndNotetype {
     pub notetype_id: NotetypeId,
 }
 
+impl From<DeckAndNotetype> for anki_proto::notes::DeckAndNotetype {
+    fn from(s: DeckAndNotetype) -> Self {
+        anki_proto::notes::DeckAndNotetype {
+            deck_id: s.deck_id.0,
+            notetype_id: s.notetype_id.0,
+        }
+    }
+}
+
 impl Collection {
     /// An option in the preferences screen governs the behaviour here.
     ///

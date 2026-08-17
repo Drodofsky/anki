@@ -2,5 +2,4 @@
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 pub(crate) mod db;
 pub(crate) mod dbproxy;
-pub(crate) mod error;
 pub mod service;
