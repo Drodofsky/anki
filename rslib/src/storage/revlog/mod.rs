@@ -209,7 +209,7 @@ impl SqliteStorage {
         self.db
             .prepare_cached(include_str!("studied_today_by_deck.sql"))?
             .query_and_then([start.0], |row| -> Result<_> {
-                Ok((DeckId(row.get(0)?), row.get(1)?))
+                Ok((DeckId(row.get(0)?), row.get::<_, i64>(1)? as usize))
             })?
             .collect()
     }

@@ -5,10 +5,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
-use axum::response::Redirect;
-use axum::response::Response;
+use http::StatusCode;
 
 pub type HttpResult<T, E = HttpError> = Result<T, E>;
 
@@ -46,26 +43,6 @@ impl HttpError {
     /// Compatibility with ensure!() macro
     pub fn fail<T>(self) -> Result<T, Self> {
         Err(self)
-    }
-}
-
-impl IntoResponse for HttpError {
-    fn into_response(self) -> Response {
-        let HttpError {
-            code,
-            context,
-            source,
-        } = self;
-        if code.is_server_error() && code != StatusCode::NOT_IMPLEMENTED {
-            tracing::error!(context, ?source, httpstatus = code.as_u16(),);
-        } else {
-            tracing::info!(context, ?source, httpstatus = code.as_u16(),);
-        }
-        if code == StatusCode::PERMANENT_REDIRECT {
-            Redirect::permanent(&context).into_response()
-        } else {
-            (code, code.as_str().to_string()).into_response()
-        }
     }
 }
 

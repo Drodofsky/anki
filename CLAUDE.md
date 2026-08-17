@@ -1,118 +1,62 @@
 # Claude Code Configuration
 
-> **Note:** Every command you need — building, running, testing, linting,
-> formatting — is defined as a recipe in the project `justfile`. Run
-> `just --list` to see them. Do not invoke `./ninja`, `./run`, or scripts
-> under `./tools` directly — use the `just` recipes instead.
-
 ## Project Overview
 
-Anki is a spaced repetition flashcard program with a multi-layered architecture. Main components:
+This is a pruned fork of Anki's Rust core library (`rslib`, published as the `anki`
+crate), kept as a real fork (full git history, `upstream` remote pointing at
+`ankitects/anki`) so changes can still be merged in selectively over time. Everything
+outside the Rust core's build closure — the Python library, PyQt desktop UI, Svelte web
+frontend, and the ninja-based monorepo build system — has been removed. See
+[README.md](./README.md) for what's kept and why.
 
-- Web frontend: Svelte/TypeScript in ts/
-- PyQt GUI, which embeds the web components in aqt/
-- Python library which wraps our rust Layer (pylib/, with Rust module in pylib/rsbridge)
-- Core Rust layer in rslib/
-- Protobuf definitions in proto/ that are used by the different layers to
-  talk to each other.
+The intent is to consume this crate as a dependency (git or path) from another project,
+not to run it as the Anki application. It targets both native and
+`wasm32-unknown-unknown` (browser) callers. See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+for what was removed/relocated and why, including the wasm32-specific adaptations.
 
-## Running Anki
+## Layout
 
-To build and run Anki in development mode:
+- `rslib/` — the `anki` crate itself: collection, cards, notes, notetypes, scheduler,
+  search, import/export, sync, media, etc.
+- `rslib/i18n`, `rslib/io`, `rslib/proto`, `rslib/proto_gen` — required build/runtime
+  dependencies of `anki`.
+- `proto/` — protobuf schema compiled by `rslib/proto`.
+- `ftl/core`, `ftl/qt` (+ `core-repo`/`qt-repo` submodules) — Fluent translation strings;
+  required at build time by `rslib/i18n`'s build script (it panics if missing).
+
+## Building and testing
+
+No `just`/ninja build system here — plain `cargo` directly, from the repo root:
 
 ```
-just run
+cargo build -p anki
+cargo test -p anki
+cargo check -p anki
+cargo clippy -p anki
+(cd cargo/format && cargo fmt --manifest-path ../../rslib/Cargo.toml)
 ```
 
-This builds pylib and qt, then launches Anki with debugging enabled. Web
-views are served at http://localhost:40000/_anki/pages/ (e.g.,
-deckconfig.html). Use `just run-optimized` for a release-optimized build.
-For live-reloading during web development, run `just web-watch` in a
-separate terminal — it monitors ts/, sass/, and qt/aqt/data/web/ and
-auto-rebuilds on changes (`just rebuild-web` triggers a one-off rebuild).
+To check the wasm32 target (no test runner for it here, check/clippy only):
 
-## Building/checking
+```
+RUSTFLAGS='--cfg getrandom_backend="wasm_js"' cargo check -p anki --target wasm32-unknown-unknown
+```
 
-`just check` will format the code and run the main build & checks.
-Please do this as a final step before marking a task as completed.
-
-Run `just` (or `just --list`) to see all available commands.
-
-## Quick iteration
-
-During development, you can build/check subsections of our code:
-
-- Rust: `cargo check`
-- Python: `just lint` (runs mypy/ruff), and if wheel-related, `just wheels`
-- TypeScript/Svelte: `just lint` (includes check:svelte and check:typescript)
-
-Language-specific tests are also available: `just test-rust`, `just test-py`,
-`just test-ts`. Use `just fmt` / `just fix-fmt` for formatting and
-`just fix-lint` to auto-fix lint issues.
-
-TypeScript/Svelte browser e2e tests live in `ts/tests/e2e/` and run with
-`just test-e2e`. The harness launches a temporary Anki instance and drives
-mediasrv pages with Playwright's Chromium.
-
-Be mindful that some changes (such as modifications to .proto files) may
-need a full build with `just check` first.
-
-## Build tooling
-
-`just` recipes wrap our build system (implemented in build/), which takes
-care of downloading required deps and invoking our build steps. See the
-project `justfile` for the full set of recipes.
-
-## Translations
-
-ftl/ contains our Fluent translation files. We have scripts in rslib/i18n
-to auto-generate an API for Rust, TypeScript and Python so that our code can
-access the translations in a type-safe manner. Changes should be made to
-ftl/core or ftl/qt. Except for features specific to our Qt interface, prefer
-the core module. When adding new strings, confirm the appropriate ftl file
-first, and try to match the existing style.
-
-## Protobuf and IPC
-
-Our build scripts use the .proto files to define our Rust library's
-non-Rust API. pylib/rsbridge exposes that API, and \_backend.py exposes
-snake_case methods for each protobuf RPC that call into the API.
-Similar tooling creates a @generated/backend TypeScript module for
-communicating with the Rust backend (which happens over POST requests).
-
-## Fixing errors
-
-When dealing with build errors or failing tests, invoke 'check' or one
-of the quick iteration commands regularly. This helps verify your changes
-are correct. To locate other instances of a problem, run the check again -
-don't attempt to grep the codebase.
-
-## Ignores
-
-The files in out/ are auto-generated. Mostly you should ignore that folder,
-though you may sometimes find it useful to view out/{pylib/anki,qt/\_aqt,ts/lib/generated} when dealing with cross-language communication or our other generated sourcecode.
-
-## Installer
-
-The code for our Briefcase-based installer is in qt/installer, with
-separate templates for each platform (mac-template/, linux-template/,
-windows-template/).
-
-## Rust dependencies
-
-Prefer adding to the root workspace, and using dep.workspace = true in the individual Rust project.
-
-## Rust utilities
-
-rslib/{process,io} contain some helpers for file and process operations,
-which provide better error messages/context and some ergonomics. Use them
-when possible.
+Prerequisites: a `protoc` binary on `PATH` (or `PROTOC_BINARY` env var set), and the
+`ftl/core-repo`/`ftl/qt-repo` submodules checked out (`git submodule update --init`).
+`cargo fmt` needs the nightly toolchain pinned in `cargo/format/rust-toolchain.toml`
+(hence running it from that directory with an explicit `--manifest-path`).
 
 ## Rust error handling
 
-in rslib, use error/mod.rs's AnkiError/Result and snafu. In our other Rust modules, prefer anyhow + additional context where appropriate. Unwrapping
-in build scripts/tests is fine.
+Use `error/mod.rs`'s `AnkiError`/`Result` and `snafu` within `rslib`. Unwrapping in
+tests is fine.
 
-## Individual preferences
+## Merging from upstream
 
-See @.claude/user.md
+`upstream` remote points at `https://github.com/ankitects/anki.git`. Do not
+`git merge upstream/main` directly into `prune-to-rslib` — see
+[docs/UPSTREAM_SYNC.md](./docs/UPSTREAM_SYNC.md) for the branch topology
+(`main` mirror / `next` staging / `prune-to-rslib` stable) and the
+commit-by-commit cherry-pick workflow, including which upstream paths can be
+skipped outright.

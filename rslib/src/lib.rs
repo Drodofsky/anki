@@ -6,7 +6,7 @@
 pub mod adding;
 pub(crate) mod ankidroid;
 pub mod ankihub;
-pub mod backend;
+pub mod ankiweb;
 pub mod browser_table;
 pub mod card;
 pub mod card_rendering;
@@ -50,7 +50,6 @@ pub mod timestamp;
 mod typeanswer;
 pub mod types;
 pub mod undo;
-mod updates;
 pub mod version;
 
 use std::env;

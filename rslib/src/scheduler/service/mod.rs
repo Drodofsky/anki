@@ -21,7 +21,6 @@ use fsrs::ComputeParametersInput;
 use fsrs::FSRSItem;
 use fsrs::FSRSReview;
 
-use crate::backend::Backend;
 use crate::prelude::*;
 use crate::scheduler::fsrs::params::ComputeParamsRequest;
 use crate::scheduler::new::NewCardDueOrder;
@@ -383,55 +382,40 @@ impl crate::services::SchedulerService for Collection {
     }
 }
 
-impl crate::services::BackendSchedulerService for Backend {
-    fn compute_fsrs_params_from_items(
-        &self,
-        req: scheduler::ComputeFsrsParamsFromItemsRequest,
-    ) -> Result<scheduler::ComputeFsrsParamsResponse> {
-        let fsrs_items = req.items.len() as u32;
-        let params = fsrs::compute_parameters(ComputeParametersInput {
-            train_set: req.items.into_iter().map(fsrs_item_proto_to_fsrs).collect(),
-            card_ids: None,
-            progress: None,
-            enable_short_term: true,
-            num_relearning_steps: None,
-            training_config: None,
-        })?;
-        Ok(ComputeFsrsParamsResponse {
-            params,
-            fsrs_items,
-            health_check_passed: None,
-        })
-    }
+pub fn compute_fsrs_params_from_items(
+    req: scheduler::ComputeFsrsParamsFromItemsRequest,
+) -> Result<scheduler::ComputeFsrsParamsResponse> {
+    let fsrs_items = req.items.len() as u32;
+    let params = fsrs::compute_parameters(ComputeParametersInput {
+        train_set: req.items.into_iter().map(fsrs_item_proto_to_fsrs).collect(),
+        card_ids: None,
+        progress: None,
+        enable_short_term: true,
+        num_relearning_steps: None,
+        training_config: None,
+    })?;
+    Ok(ComputeFsrsParamsResponse {
+        params,
+        fsrs_items,
+        health_check_passed: None,
+    })
+}
 
-    fn fsrs_benchmark(
-        &self,
-        req: scheduler::FsrsBenchmarkRequest,
-    ) -> Result<scheduler::FsrsBenchmarkResponse> {
-        let train_set = req
-            .train_set
-            .into_iter()
-            .map(fsrs_item_proto_to_fsrs)
-            .collect();
-        let params = fsrs::benchmark(ComputeParametersInput {
-            train_set,
-            card_ids: None,
-            progress: None,
-            enable_short_term: true,
-            num_relearning_steps: None,
-            training_config: None,
-        });
-        Ok(FsrsBenchmarkResponse { params })
-    }
-
-    fn export_dataset(&self, req: scheduler::ExportDatasetRequest) -> Result<()> {
-        self.with_col(|col| {
-            col.export_dataset(
-                req.min_entries.try_into().unwrap(),
-                req.target_path.as_ref(),
-            )
-        })
-    }
+pub fn fsrs_benchmark(req: scheduler::FsrsBenchmarkRequest) -> scheduler::FsrsBenchmarkResponse {
+    let train_set = req
+        .train_set
+        .into_iter()
+        .map(fsrs_item_proto_to_fsrs)
+        .collect();
+    let params = fsrs::benchmark(ComputeParametersInput {
+        train_set,
+        card_ids: None,
+        progress: None,
+        enable_short_term: true,
+        num_relearning_steps: None,
+        training_config: None,
+    });
+    FsrsBenchmarkResponse { params }
 }
 
 fn fsrs_item_proto_to_fsrs(item: anki_proto::scheduler::FsrsItem) -> FSRSItem {

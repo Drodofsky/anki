@@ -18,6 +18,15 @@ pub struct SchedTimingToday {
     pub next_day_at: TimestampSecs,
 }
 
+impl From<SchedTimingToday> for anki_proto::scheduler::SchedTimingTodayResponse {
+    fn from(t: SchedTimingToday) -> anki_proto::scheduler::SchedTimingTodayResponse {
+        anki_proto::scheduler::SchedTimingTodayResponse {
+            days_elapsed: t.days_elapsed,
+            next_day_at: t.next_day_at.0,
+        }
+    }
+}
+
 /// Timing information for the current day.
 /// - creation_secs is a UNIX timestamp of the collection creation time
 /// - creation_utc_offset is the UTC offset at collection creation time

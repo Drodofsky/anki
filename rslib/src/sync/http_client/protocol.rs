@@ -37,7 +37,8 @@ use crate::sync::media::upload;
 use crate::sync::request::SyncRequest;
 use crate::sync::response::SyncResponse;
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl SyncProtocol for HttpSyncClient {
     async fn host_key(
         &self,
@@ -108,7 +109,8 @@ impl SyncProtocol for HttpSyncClient {
     }
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl MediaSyncProtocol for HttpSyncClient {
     async fn begin(
         &self,

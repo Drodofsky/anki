@@ -45,9 +45,6 @@ anki_io.workspace = true
 anki_proto.workspace = true
 async-compression.workspace = true
 async-trait.workspace = true
-axum.workspace = true
-axum-client-ip.workspace = true
-axum-extra.workspace = true
 bitflags.workspace = true
 blake3.workspace = true
 bytes.workspace = true
@@ -57,7 +54,6 @@ convert_case.workspace = true
 csv.workspace = true
 data-encoding.workspace = true
 difflib.workspace = true
-dirs.workspace = true
 envy.workspace = true
 flate2.workspace = true
 fluent.workspace = true
@@ -67,6 +63,7 @@ fsrs.workspace = true
 futures.workspace = true
 hex.workspace = true
 htmlescape.workspace = true
+http.workspace = true
 hyper.workspace = true
 id_tree.workspace = true
 itertools.workspace = true
@@ -101,7 +98,6 @@ strum.workspace = true
 tempfile.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
-tower-http.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true
@@ -109,7 +105,22 @@ unic-ucd-category.workspace = true
 unicase.workspace = true
 unicode-normalization.workspace = true
 zip.workspace = true
-zstd.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# zstdmt (multithreaded compression) needs pthreads, unavailable on wasm32.
+zstd.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+zstd = "0.13.3"
+# tokio only supports sync,macros,io-util,rt,time on wasm32 (no fs/net/
+# rt-multi-thread/signal); add "sync"/"time" on top of the workspace's
+# native feature set (union'd with the plain dependencies entry below).
+tokio = { version = "1.45", features = ["sync", "time"] }
+# rand (via anki_io) and fsrs pull in two different major versions of
+# getrandom transitively; both need the wasm_js backend enabled explicitly
+# (also requires --cfg getrandom_backend="wasm_js" in RUSTFLAGS).
+getrandom = { version = "0.4", features = ["wasm_js"] }
+getrandom03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }

@@ -26,6 +26,14 @@ pub struct LoginResponse {
     pub token: Option<String>,
 }
 
+impl From<LoginResponse> for anki_proto::ankihub::LoginResponse {
+    fn from(value: LoginResponse) -> Self {
+        anki_proto::ankihub::LoginResponse {
+            token: value.token.unwrap_or_default(),
+        }
+    }
+}
+
 pub async fn ankihub_login<S: Into<String>>(
     id: S,
     password: S,

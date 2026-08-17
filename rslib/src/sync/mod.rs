@@ -4,7 +4,6 @@
 pub mod collection;
 pub mod error;
 pub mod http_client;
-pub mod http_server;
 pub mod login;
 pub mod media;
 pub mod request;

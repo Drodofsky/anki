@@ -22,7 +22,14 @@ use crate::sync::collection::progress::FullSyncProgress;
 use crate::sync::collection::progress::SyncStage;
 use crate::sync::media::progress::MediaCheckProgress;
 use crate::sync::media::progress::MediaSyncProgress;
-use crate::updates::DownloadUpdateProgress;
+
+/// Kept for the protobuf progress enum's exhaustive match; the desktop
+/// self-updater that produced this was removed.
+#[derive(Debug, Copy, Clone, Default)]
+pub struct DownloadUpdateProgress {
+    pub downloaded_bytes: usize,
+    pub total_bytes: usize,
+}
 
 /// Stores progress state that can be updated cheaply, and will update a
 /// Mutex-protected copy that other threads can check, if more than 0.1

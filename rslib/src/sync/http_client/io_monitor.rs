@@ -1,161 +1,12 @@
 // Copyright: Ankitects Pty Ltd and contributors
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
-use std::io::Cursor;
-use std::io::ErrorKind;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::time::Duration;
-
-use bytes::Bytes;
-use futures::Stream;
-use futures::StreamExt;
-use futures::TryStreamExt;
-use reqwest::header::CONTENT_TYPE;
 use reqwest::header::LOCATION;
-use reqwest::Body;
-use reqwest::RequestBuilder;
 use reqwest::Response;
 use reqwest::StatusCode;
-use tokio::io::AsyncReadExt;
-use tokio::select;
-use tokio::time::interval;
-use tokio::time::Instant;
-use tokio_util::io::ReaderStream;
-use tokio_util::io::StreamReader;
 
-use crate::error::Result;
-use crate::sync::error::HttpError;
 use crate::sync::error::HttpResult;
 use crate::sync::error::OrHttpErr;
-use crate::sync::request::header_and_stream::decode_zstd_body_stream_for_client;
-use crate::sync::request::header_and_stream::encode_zstd_body_stream;
-use crate::sync::response::ORIGINAL_SIZE;
-
-/// Serves two purposes:
-/// - allows us to monitor data sending/receiving and abort if the transfer
-///   stalls
-/// - allows us to monitor amount of data moving, to provide progress reporting
-#[derive(Clone)]
-pub struct IoMonitor(pub Arc<Mutex<IoMonitorInner>>);
-
-impl IoMonitor {
-    pub fn new() -> Self {
-        Self(Arc::new(Mutex::new(IoMonitorInner {
-            last_activity: Instant::now(),
-            bytes_sent: 0,
-            total_bytes_to_send: 0,
-            bytes_received: 0,
-            total_bytes_to_receive: 0,
-        })))
-    }
-
-    pub fn wrap_stream<S, E>(
-        &self,
-        sending: bool,
-        total_bytes: u32,
-        stream: S,
-    ) -> impl Stream<Item = HttpResult<Bytes>> + Send + Sync + 'static
-    where
-        S: Stream<Item = Result<Bytes, E>> + Send + Sync + 'static,
-        E: std::error::Error + Send + Sync + 'static,
-    {
-        let inner = self.0.clone();
-        {
-            let mut inner = inner.lock().unwrap();
-            inner.last_activity = Instant::now();
-            if sending {
-                inner.total_bytes_to_send += total_bytes
-            } else {
-                inner.total_bytes_to_receive += total_bytes
-            }
-        }
-        stream.map(move |res| match res {
-            Ok(bytes) => {
-                let mut inner = inner.lock().unwrap();
-                inner.last_activity = Instant::now();
-                if sending {
-                    inner.bytes_sent += bytes.len() as u32;
-                } else {
-                    inner.bytes_received += bytes.len() as u32;
-                }
-                Ok(bytes)
-            }
-            err => err.or_http_err(StatusCode::SEE_OTHER, "stream failure"),
-        })
-    }
-
-    /// Returns if no I/O activity observed for `stall_time`.
-    pub async fn timeout(&self, stall_time: Duration) {
-        let poll_interval = Duration::from_millis(if cfg!(test) { 10 } else { 1000 });
-        let mut interval = interval(poll_interval);
-        loop {
-            let now = interval.tick().await;
-            let last_activity = self.0.lock().unwrap().last_activity;
-            if now.duration_since(last_activity) > stall_time {
-                return;
-            }
-        }
-    }
-
-    /// Takes care of encoding provided request data and setting content type to
-    /// binary, and returns the decompressed response body.
-    pub async fn zstd_request_with_timeout(
-        &self,
-        request: RequestBuilder,
-        request_body: Vec<u8>,
-        stall_duration: Duration,
-    ) -> HttpResult<Vec<u8>> {
-        let request_total = request_body.len() as u32;
-        let request_body_stream = encode_zstd_body_stream(self.wrap_stream(
-            true,
-            request_total,
-            ReaderStream::new(Cursor::new(request_body)),
-        ));
-        let response_body_stream = async move {
-            let resp = request
-                .header(CONTENT_TYPE, "application/octet-stream")
-                .body(Body::wrap_stream(request_body_stream))
-                .send()
-                .await?
-                .error_for_status()?;
-            map_redirect_to_error(&resp)?;
-            let response_total = resp
-                .headers()
-                .get(&ORIGINAL_SIZE)
-                .and_then(|v| v.to_str().ok())
-                .and_then(|v| v.parse::<u32>().ok())
-                .or_bad_request("missing original size")?;
-            let response_stream = self.wrap_stream(
-                false,
-                response_total,
-                decode_zstd_body_stream_for_client(resp.bytes_stream()),
-            );
-            let mut reader =
-                StreamReader::new(response_stream.map_err(|e| {
-                    std::io::Error::new(ErrorKind::ConnectionAborted, format!("{e}"))
-                }));
-            let mut buf = Vec::with_capacity(response_total as usize);
-            reader
-                .read_to_end(&mut buf)
-                .await
-                .or_http_err(StatusCode::SEE_OTHER, "reading stream")?;
-            Ok::<_, HttpError>(buf)
-        };
-        select! {
-            // happy path
-            data = response_body_stream => Ok(data?),
-            // timeout
-            _ = self.timeout(stall_duration) => {
-                Err(HttpError {
-                    code: StatusCode::REQUEST_TIMEOUT,
-                    context: "timeout monitor".into(),
-                    source: None,
-                })
-            }
-        }
-    }
-}
 
 /// Reqwest can't retry a redirected request as the body has been consumed, so
 /// we need to bubble it up to the sync driver to retry.
@@ -172,20 +23,241 @@ fn map_redirect_to_error(resp: &Response) -> HttpResult<()> {
     Ok(())
 }
 
-#[derive(Debug)]
-pub struct IoMonitorInner {
-    last_activity: Instant,
-    pub bytes_sent: u32,
-    pub total_bytes_to_send: u32,
-    pub bytes_received: u32,
-    pub total_bytes_to_receive: u32,
+#[cfg(not(target_arch = "wasm32"))]
+pub use native::IoMonitor;
+#[cfg(target_arch = "wasm32")]
+pub use wasm::IoMonitor;
+
+/// Native implementation: request/response bodies are streamed in chunks
+/// (rather than fully buffered), which lets us both report fine-grained
+/// upload/download progress and detect a stalled transfer (no data moved
+/// for a while, as opposed to reqwest's own timeout, which caps the total
+/// request duration).
+#[cfg(not(target_arch = "wasm32"))]
+mod native {
+    use std::io::Cursor;
+    use std::io::ErrorKind;
+    use std::sync::Arc;
+    use std::sync::Mutex;
+    use std::time::Duration;
+
+    use bytes::Bytes;
+    use futures::Stream;
+    use futures::StreamExt;
+    use futures::TryStreamExt;
+    use reqwest::header::CONTENT_TYPE;
+    use reqwest::Body;
+    use reqwest::RequestBuilder;
+    use reqwest::StatusCode;
+    use tokio::io::AsyncReadExt;
+    use tokio::select;
+    use tokio::time::interval;
+    use tokio::time::Instant;
+    use tokio_util::io::ReaderStream;
+    use tokio_util::io::StreamReader;
+
+    use super::map_redirect_to_error;
+    use crate::error::Result;
+    use crate::sync::error::HttpError;
+    use crate::sync::error::HttpResult;
+    use crate::sync::error::OrHttpErr;
+    use crate::sync::request::header_and_stream::decode_zstd_body_stream_for_client;
+    use crate::sync::request::header_and_stream::encode_zstd_body_stream;
+    use crate::sync::response::ORIGINAL_SIZE;
+
+    /// Serves two purposes:
+    /// - allows us to monitor data sending/receiving and abort if the transfer
+    ///   stalls
+    /// - allows us to monitor amount of data moving, to provide progress
+    ///   reporting
+    #[derive(Clone)]
+    pub struct IoMonitor(pub Arc<Mutex<IoMonitorInner>>);
+
+    impl IoMonitor {
+        pub fn new() -> Self {
+            Self(Arc::new(Mutex::new(IoMonitorInner {
+                last_activity: Instant::now(),
+                bytes_sent: 0,
+                total_bytes_to_send: 0,
+                bytes_received: 0,
+                total_bytes_to_receive: 0,
+            })))
+        }
+
+        pub fn wrap_stream<S, E>(
+            &self,
+            sending: bool,
+            total_bytes: u32,
+            stream: S,
+        ) -> impl Stream<Item = HttpResult<Bytes>> + Send + Sync + 'static
+        where
+            S: Stream<Item = Result<Bytes, E>> + Send + Sync + 'static,
+            E: std::error::Error + Send + Sync + 'static,
+        {
+            let inner = self.0.clone();
+            {
+                let mut inner = inner.lock().unwrap();
+                inner.last_activity = Instant::now();
+                if sending {
+                    inner.total_bytes_to_send += total_bytes
+                } else {
+                    inner.total_bytes_to_receive += total_bytes
+                }
+            }
+            stream.map(move |res| match res {
+                Ok(bytes) => {
+                    let mut inner = inner.lock().unwrap();
+                    inner.last_activity = Instant::now();
+                    if sending {
+                        inner.bytes_sent += bytes.len() as u32;
+                    } else {
+                        inner.bytes_received += bytes.len() as u32;
+                    }
+                    Ok(bytes)
+                }
+                err => err.or_http_err(StatusCode::SEE_OTHER, "stream failure"),
+            })
+        }
+
+        /// Returns if no I/O activity observed for `stall_time`.
+        pub async fn timeout(&self, stall_time: Duration) {
+            let poll_interval = Duration::from_millis(if cfg!(test) { 10 } else { 1000 });
+            let mut interval = interval(poll_interval);
+            loop {
+                let now = interval.tick().await;
+                let last_activity = self.0.lock().unwrap().last_activity;
+                if now.duration_since(last_activity) > stall_time {
+                    return;
+                }
+            }
+        }
+
+        /// Takes care of encoding provided request data and setting content
+        /// type to binary, and returns the decompressed response body.
+        pub async fn zstd_request_with_timeout(
+            &self,
+            request: RequestBuilder,
+            request_body: Vec<u8>,
+            stall_duration: Duration,
+        ) -> HttpResult<Vec<u8>> {
+            let request_total = request_body.len() as u32;
+            let request_body_stream = encode_zstd_body_stream(self.wrap_stream(
+                true,
+                request_total,
+                ReaderStream::new(Cursor::new(request_body)),
+            ));
+            let response_body_stream = async move {
+                let resp = request
+                    .header(CONTENT_TYPE, "application/octet-stream")
+                    .body(Body::wrap_stream(request_body_stream))
+                    .send()
+                    .await?
+                    .error_for_status()?;
+                map_redirect_to_error(&resp)?;
+                let response_total = resp
+                    .headers()
+                    .get(&ORIGINAL_SIZE)
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u32>().ok())
+                    .or_bad_request("missing original size")?;
+                let response_stream = self.wrap_stream(
+                    false,
+                    response_total,
+                    decode_zstd_body_stream_for_client(resp.bytes_stream()),
+                );
+                let mut reader = StreamReader::new(response_stream.map_err(|e| {
+                    std::io::Error::new(ErrorKind::ConnectionAborted, format!("{e}"))
+                }));
+                let mut buf = Vec::with_capacity(response_total as usize);
+                reader
+                    .read_to_end(&mut buf)
+                    .await
+                    .or_http_err(StatusCode::SEE_OTHER, "reading stream")?;
+                Ok::<_, HttpError>(buf)
+            };
+            select! {
+                // happy path
+                data = response_body_stream => Ok(data?),
+                // timeout
+                _ = self.timeout(stall_duration) => {
+                    Err(HttpError {
+                        code: StatusCode::REQUEST_TIMEOUT,
+                        context: "timeout monitor".into(),
+                        source: None,
+                    })
+                }
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct IoMonitorInner {
+        last_activity: Instant,
+        pub bytes_sent: u32,
+        pub total_bytes_to_send: u32,
+        pub bytes_received: u32,
+        pub total_bytes_to_receive: u32,
+    }
 }
 
-impl IoMonitor {}
+/// wasm32 implementation: browsers' fetch() API (which reqwest's wasm
+/// backend uses) has no upload-progress mechanism at all - getting one
+/// requires bypassing fetch entirely for XMLHttpRequest, which is out of
+/// scope for now. So on this target, requests/responses are fully
+/// buffered rather than streamed (no fine-grained progress reporting),
+/// and reqwest's own per-request timeout is used in place of stall
+/// detection - it caps total request duration rather than aborting only
+/// when no data has moved, which is a real (if usually inconsequential)
+/// behavioural difference from the native implementation.
+#[cfg(target_arch = "wasm32")]
+mod wasm {
+    use std::time::Duration;
 
-#[cfg(test)]
+    use reqwest::header::CONTENT_TYPE;
+    use reqwest::Body;
+    use reqwest::RequestBuilder;
+    use reqwest::StatusCode;
+
+    use super::map_redirect_to_error;
+    use crate::sync::error::HttpResult;
+    use crate::sync::error::OrHttpErr;
+
+    #[derive(Clone)]
+    pub struct IoMonitor;
+
+    impl IoMonitor {
+        pub fn new() -> Self {
+            Self
+        }
+
+        pub async fn zstd_request_with_timeout(
+            &self,
+            request: RequestBuilder,
+            request_body: Vec<u8>,
+            stall_duration: Duration,
+        ) -> HttpResult<Vec<u8>> {
+            let compressed = zstd::encode_all(&request_body[..], zstd::DEFAULT_COMPRESSION_LEVEL)
+                .or_internal_err("zstd encode")?;
+            let resp = request
+                .header(CONTENT_TYPE, "application/octet-stream")
+                .body(Body::from(compressed))
+                .timeout(stall_duration)
+                .send()
+                .await?
+                .error_for_status()?;
+            map_redirect_to_error(&resp)?;
+            let data = resp.bytes().await?;
+            zstd::decode_all(&data[..]).or_http_err(StatusCode::BAD_REQUEST, "zstd decode")
+        }
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod test {
+    use std::time::Duration;
+
     use async_stream::stream;
+    use bytes::Bytes;
     use futures::pin_mut;
     use futures::StreamExt;
     use tokio::select;
@@ -198,6 +270,7 @@ mod test {
 
     use super::*;
     use crate::sync::error::HttpError;
+    use crate::sync::response::ORIGINAL_SIZE;
 
     /// The delays in the tests are aggressively short, and false positives slip
     /// through on a loaded system - especially on Windows. Fix by applying

@@ -174,7 +174,8 @@ impl Collection {
     pub fn changes_since_open(&self) -> Result<u64> {
         self.storage
             .db
-            .query_row("select total_changes()", [], |row| row.get(0))
+            .query_row("select total_changes()", [], |row| row.get::<_, i64>(0))
+            .map(|n| n as u64)
             .map_err(Into::into)
     }
 

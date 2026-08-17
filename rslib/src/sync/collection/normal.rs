@@ -165,6 +165,39 @@ impl From<ClientSyncState> for SyncOutput {
     }
 }
 
+impl From<SyncOutput> for anki_proto::sync::SyncCollectionResponse {
+    fn from(o: SyncOutput) -> Self {
+        anki_proto::sync::SyncCollectionResponse {
+            host_number: o.host_number,
+            server_message: o.server_message,
+            new_endpoint: o.new_endpoint,
+            required: match o.required {
+                SyncActionRequired::NoChanges => {
+                    anki_proto::sync::sync_collection_response::ChangesRequired::NoChanges as i32
+                }
+                SyncActionRequired::FullSyncRequired {
+                    upload_ok,
+                    download_ok,
+                } => {
+                    if !upload_ok {
+                        anki_proto::sync::sync_collection_response::ChangesRequired::FullDownload
+                            as i32
+                    } else if !download_ok {
+                        anki_proto::sync::sync_collection_response::ChangesRequired::FullUpload
+                            as i32
+                    } else {
+                        anki_proto::sync::sync_collection_response::ChangesRequired::FullSync as i32
+                    }
+                }
+                SyncActionRequired::NormalSyncRequired => {
+                    anki_proto::sync::sync_collection_response::ChangesRequired::NormalSync as i32
+                }
+            },
+            server_media_usn: o.server_media_usn.0,
+        }
+    }
+}
+
 impl Collection {
     pub async fn normal_sync(
         &mut self,

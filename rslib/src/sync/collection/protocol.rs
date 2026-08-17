@@ -57,7 +57,10 @@ impl AsSyncEndpoint for SyncMethod {
     }
 }
 
-#[async_trait]
+// wasm-bindgen-futures' JsFuture is !Send (JS values can never cross
+// threads), so trait method futures can't be required to be Send there.
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait SyncProtocol: Send + Sync + 'static {
     async fn host_key(
         &self,

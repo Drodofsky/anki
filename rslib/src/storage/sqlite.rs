@@ -195,7 +195,7 @@ fn add_regexp_fields_function(db: &Connection) -> rusqlite::Result<()> {
                 })?;
             let fields = ctx.get_raw(1).as_str()?.split('\x1f');
             let indices: HashSet<usize> = (2..ctx.len())
-                .map(|i| ctx.get(i))
+                .map(|i| ctx.get::<i64>(i).map(|n| n as usize))
                 .collect::<rusqlite::Result<_>>()?;
 
             Ok(fields.enumerate().any(|(idx, field)| {

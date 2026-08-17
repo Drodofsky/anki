@@ -7,29 +7,17 @@ rust-version = "1.80"
 
 [workspace]
 members = [
-  "build/configure",
-  "build/ninja_gen",
-  "build/runner",
-  "ftl",
-  "pylib/rsbridge",
   "rslib",
   "rslib/i18n",
   "rslib/io",
-  "rslib/linkchecker",
-  "rslib/process",
   "rslib/proto",
-  "rslib/sync",
-  "tools/minilints",
+  "rslib/proto_gen",
 ]
 resolver = "2"
 
 [workspace.dependencies.percent-encoding-iri]
 git = "https://github.com/ankitects/rust-url.git"
 rev = "bb930b8d089f4d30d7d19c12e54e66191de47b88"
-
-[workspace.dependencies.linkcheck]
-git = "https://github.com/ankitects/linkcheck.git"
-rev = "184b2ca50ed39ca43da13f0b830a463861adb9ca"
 
 [workspace.dependencies.fsrs]
 version = "6.6.1"
@@ -55,9 +43,6 @@ anyhow = "1.0.98"
 async-compression = { version = "0.4.24", features = ["zstd", "tokio"] }
 async-stream = "0.3.6"
 async-trait = "0.1.88"
-axum = { version = "0.8.4", features = ["multipart", "macros"] }
-axum-client-ip = "1.1.3"
-axum-extra = { version = "0.10.1", features = ["typed-header"] }
 bitflags = "2.9.1"
 blake3 = "1.8.2"
 bytes = "1.11.1"
@@ -70,7 +55,6 @@ criterion = { version = "0.6.0" }
 csv = "1.3.1"
 data-encoding = "2.9.0"
 difflib = "0.4.0"
-dirs = "6.0.0"
 dunce = "1.0.5"
 embed-resource = "3.0.4"
 envy = "0.4.2"
@@ -83,6 +67,7 @@ futures = "0.3.31"
 globset = "0.4.16"
 hex = "0.4.3"
 htmlescape = "0.3.1"
+http = "1"
 hyper = "1"
 id_tree = "1.8.0"
 inflections = "1.1.1"
@@ -113,7 +98,7 @@ rand = "0.9.4"
 rayon = "1.10.0"
 regex = "1.11.1"
 reqwest = { version = "0.12.20", default-features = false, features = ["json", "socks", "stream", "multipart"] }
-rusqlite = { version = "0.36.0", features = ["trace", "functions", "collation", "bundled"] }
+rusqlite = { version = "0.40.2", features = ["trace", "functions", "collation", "bundled"] }
 rustls-pemfile = "2.2.0"
 same-file = "1.0.6"
 scopeguard = "1.2.0"
@@ -130,9 +115,8 @@ syn = { version = "2.0.103", features = ["parsing", "printing"] }
 tar = "0.4.46"
 tempfile = "3.20.0"
 termcolor = "1.4.1"
-tokio = { version = "1.45", features = ["fs", "rt-multi-thread", "macros", "signal"] }
+tokio = { version = "1.45", features = ["io-util", "rt", "macros"] }
 tokio-util = { version = "0.7.15", features = ["io"] }
-tower-http = { version = "0.6.6", features = ["trace"] }
 tracing = { version = "0.1.41", features = ["max_level_trace", "release_max_level_debug"] }
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["fmt", "env-filter"] }
@@ -168,8 +152,6 @@ debug = 0
 # Debug info off by default, which speeds up incremental builds and produces a considerably
 # smaller library.
 [profile.dev.package.anki]
-debug = 0
-[profile.dev.package.rsbridge]
 debug = 0
 
 [profile.release-lto]

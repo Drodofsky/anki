@@ -5,7 +5,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_tuple::Serialize_tuple;
 use tracing::debug;
-use tracing::info;
 
 use crate::error::SyncErrorKind;
 use crate::prelude::*;
@@ -80,40 +79,6 @@ impl NormalSyncer<'_> {
             Ok(())
         }
     }
-}
-
-pub fn server_sanity_check(
-    SanityCheckRequest { mut client }: SanityCheckRequest,
-    col: &mut Collection,
-) -> Result<SanityCheckResponse> {
-    let mut server = match col.storage.sanity_check_info() {
-        Ok(info) => info,
-        Err(err) => {
-            info!(client_counts=?client, ?err, "sanity check failed");
-            return Ok(SanityCheckResponse {
-                status: SanityCheckStatus::Bad,
-                client: Some(client),
-                server: None,
-            });
-        }
-    };
-
-    client.counts = Default::default();
-    // clients on schema 17 and below may send duplicate
-    // deletion markers, so we can't compare graves until
-    // the minimum syncing version is schema 18.
-    client.graves = 0;
-    server.graves = 0;
-    Ok(SanityCheckResponse {
-        status: if client == server {
-            SanityCheckStatus::Ok
-        } else {
-            info!(client_counts=?client, server_counts=?server, "sanity check failed");
-            SanityCheckStatus::Bad
-        },
-        client: Some(client),
-        server: Some(server),
-    })
 }
 
 #[derive(Serialize, Deserialize, Debug)]

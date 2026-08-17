@@ -6,7 +6,6 @@ use serde::Serialize;
 
 use crate::prelude::*;
 use crate::sync::collection::chunks::CHUNK_SIZE;
-use crate::sync::collection::start::ServerSyncState;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct ApplyGravesRequest {
@@ -60,12 +59,4 @@ impl Collection {
         }
         Ok(())
     }
-}
-
-pub fn server_apply_graves(
-    req: ApplyGravesRequest,
-    col: &mut Collection,
-    state: &mut ServerSyncState,
-) -> Result<()> {
-    col.apply_graves(req.chunk, state.server_usn)
 }
