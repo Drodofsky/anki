@@ -115,3 +115,12 @@ zstd.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 zstd = "0.13.3"
+# tokio only supports sync,macros,io-util,rt,time on wasm32 (no fs/net/
+# rt-multi-thread/signal); add "sync"/"time" on top of the workspace's
+# native feature set (union'd with the plain dependencies entry below).
+tokio = { version = "1.45", features = ["sync", "time"] }
+# rand (via anki_io) and fsrs pull in two different major versions of
+# getrandom transitively; both need the wasm_js backend enabled explicitly
+# (also requires --cfg getrandom_backend="wasm_js" in RUSTFLAGS).
+getrandom = { version = "0.4", features = ["wasm_js"] }
+getrandom03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }

@@ -115,7 +115,7 @@ syn = { version = "2.0.103", features = ["parsing", "printing"] }
 tar = "0.4.46"
 tempfile = "3.20.0"
 termcolor = "1.4.1"
-tokio = { version = "1.45", features = ["io-util", "rt-multi-thread", "macros"] }
+tokio = { version = "1.45", features = ["io-util", "rt", "macros"] }
 tokio-util = { version = "0.7.15", features = ["io"] }
 tracing = { version = "0.1.41", features = ["max_level_trace", "release_max_level_debug"] }
 tracing-appender = "0.2.3"
