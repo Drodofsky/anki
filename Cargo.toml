@@ -47,7 +47,11 @@ bitflags = "2.9.1"
 blake3 = "1.8.2"
 bytes = "1.11.1"
 camino = "1.1.10"
-chrono = { version = "0.4.41", default-features = false, features = ["std", "clock"] }
+# wasmbind (a chrono default feature, disabled here along with the rest of
+# the defaults) is required for Local::now()/local UTC offset lookups on
+# wasm32-unknown-unknown - it's a no-op on other targets (chrono only pulls
+# in wasm-bindgen/js-sys when actually compiling for wasm32).
+chrono = { version = "0.4.41", default-features = false, features = ["std", "clock", "wasmbind"] }
 clap = { version = "4.5.40", features = ["derive"] }
 coarsetime = "0.1.36"
 convert_case = "0.8.0"
@@ -128,6 +132,7 @@ unic-langid = { version = "0.9.6", features = ["macros"] }
 unic-ucd-category = "0.9.0"
 unicode-normalization = "0.1.24"
 walkdir = "2.5.0"
+web-time = "1.1.0"
 which = "8.0.0"
 widestring = "1.1.0"
 winapi = { version = "0.3", features = ["wincon", "winreg"] }

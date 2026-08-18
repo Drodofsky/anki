@@ -115,6 +115,10 @@ zstd.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 zstd = "0.13.3"
+# std::time::SystemTime/Instant::now() panic on wasm32-unknown-unknown at
+# runtime ("time not implemented on this platform") - no OS clock exists.
+# web-time is a drop-in replacement backed by Performance.now()/Date.now().
+web-time.workspace = true
 # tokio only supports sync,macros,io-util,rt,time on wasm32 (no fs/net/
 # rt-multi-thread/signal); add "sync"/"time" on top of the workspace's
 # native feature set (union'd with the plain dependencies entry below).
